@@ -1,0 +1,39 @@
+check process port_1_monitor.sh with pidfile /var/run/port_1_monitor.pid
+   start = "/home/solar/versa_upgrade/monitoring/port_1_monitor.sh start"
+   stop = "/home/solar/versa_upgrade/monitoring/port_1_monitor.sh stop"
+
+check process port_2_monitor.sh with pidfile /var/run/port_2_monitor.pid
+   start = "/home/solar/versa_upgrade/monitoring/port_2_monitor.sh start"
+   stop = "/home/solar/versa_upgrade/monitoring/port_2_monitor.sh stop"
+
+check process port_3_monitor.sh with pidfile /var/run/port_3_monitor.pid
+   start = "/home/solar/versa_upgrade/monitoring/port_3_monitor.sh start"
+   stop = "/home/solar/versa_upgrade/monitoring/port_3_monitor.sh stop"
+
+check process port_4_monitor.sh with pidfile /var/run/port_4_monitor.pid
+   start = "/home/solar/versa_upgrade/monitoring/port_4_monitor.sh start"
+   stop = "/home/solar/versa_upgrade/monitoring/port_4_monitor.sh stop"
+
+check process port_5_monitor.sh with pidfile /var/run/port_5_monitor.pid
+   start = "/home/solar/versa_upgrade/monitoring/port_5_monitor.sh start"
+   stop = "/home/solar/versa_upgrade/monitoring/port_5_monitor.sh stop"
+
+check process port_6_monitor.sh with pidfile /var/run/port_6_monitor.pid
+   start = "/home/solar/versa_upgrade/monitoring/port_6_monitor.sh start"
+   stop = "/home/solar/versa_upgrade/monitoring/port_6_monitor.sh stop"
+
+check process port_7_monitor.sh with pidfile /var/run/port_7_monitor.pid
+   start = "/home/solar/versa_upgrade/monitoring/port_7_monitor.sh start"
+   stop = "/home/solar/versa_upgrade/monitoring/port_7_monitor.sh stop"
+
+check process port_8_monitor.sh with pidfile /var/run/port_8_monitor.pid
+   start = "/home/solar/versa_upgrade/monitoring/port_8_monitor.sh start"
+   stop = "/home/solar/versa_upgrade/monitoring/port_8_monitor.sh stop"
+
+check process port_9_monitor.sh with pidfile /var/run/port_9_monitor.pid
+   start = "/home/solar/versa_upgrade/monitoring/port_9_monitor.sh start"
+   stop = "/home/solar/versa_upgrade/monitoring/port_9_monitor.sh stop"
+
+check process port_10_monitor.sh with pidfile /var/run/port_10_monitor.pid
+   start = "/home/solar/versa_upgrade/monitoring/port_10_monitor.sh start"
+   stop = "/home/solar/versa_upgrade/monitoring/port_10_monitor.sh stop"
