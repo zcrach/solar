@@ -280,7 +280,7 @@ def main():
                             
                             if "Stopped" in versa_status: #Loop here - 10 Attempts over 10 minutes
                                 logger.info(f"Some services have stopped, will try again in 1 minute, attempt number {i}.")
-                                if i == 3:
+                                if i == 5:
                                     logger.info(f"Failed to check services {i} times.")
                                     if not versa_reboot():
                                         logger.info(f"Failed to restart device, waiting 1 minute.")
