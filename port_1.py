@@ -196,6 +196,21 @@ def versa_failed_upgrade():
     except:
         return False
 
+def versa_reboot():
+    #Had scenario's where it failed entering cli even with services running, and gave errors. Using Try to just repeat until it works. 
+    #Would also break if unplugged during upgrade. 
+    try:
+        ch = pexpect.spawn(f'ssh {username}@{hostname}', timeout=30, maxread=65535)
+        ch.logfile = sys.stdout.buffer
+        ch.expect(['assword:', pexpect.EOF, pexpect.TIMEOUT])
+        send_and_expect(ch, password, prompt)
+        logger.info(f"Rebooting device")
+        send_and_expect(ch, f"sudo reboot", "admin: ")
+        send_and_expect(ch, password, prompt)        
+        return True
+    except:
+        return False
+
 def versa_upload():
     #Using Try incase upload fails midway or someone unplugs the ethernet cable. Would break if unplugged during upload. 
     try:
@@ -262,15 +277,26 @@ def main():
                     try: 
                         #Check if all services are running, then proceed. 
                         for i in range(10):
+                            
                             if "Stopped" in versa_status: #Loop here - 10 Attempts over 10 minutes
-                                logger.info("Some services have stopped, will try again in 1 minute.")
+                                logger.info(f"Some services have stopped, will try again in 1 minute, attempt number {i}.")
+                                if i == 3:
+                                    logger.info(f"Failed to check services {i} times.")
+                                    if not versa_reboot():
+                                        logger.info(f"Failed to restart device, waiting 1 minute.")
+                                        time.sleep(60)
+                                        break
+                                    else:
+                                        logger.info(f"Successfully restart device, waiting 1 minute.")
+                                        time.sleep(60)
+                                        break
                                 if not versa_update_clock():
                                     logger.info(f"Failed to update clock.")
                                     time.sleep(60)
                                 else:
                                     logger.info(f"Successfully updated clock ")
                                     time.sleep(60)
-                                break
+                                
 
                             elif "Running" in versa_status:
                                 logger.info("All services are running")
