@@ -3,6 +3,7 @@ from datetime import date
 from versa_variables import *
 #File used to hold hosts file and image file variable. Same directory, named versa_variables.py
 
+global versa_failed_status, versa_needs_reboot
 
 #Variable to change ports.1
 #If going above port 9, modify hostname. 
@@ -11,7 +12,8 @@ hostname = f"172.16.1{port_number}.1"
 username = "admin"
 password = "versa123"
 prompt = "\$"
-
+versa_failed_status = 0
+versa_needs_reboot = 0
 
 def versa_login():
     #Creates the initial SSH session used to gather variables. 
@@ -176,6 +178,20 @@ def versa_update_clock():
     except:
         return False
 
+def versa_reboot():
+    #Had scenario's where it failed entering cli even with services running, and gave errors. Using Try to just repeat until it works. 
+    #Would also break if unplugged during upgrade. 
+    try:
+        ch = pexpect.spawn(f'ssh {username}@{hostname}', timeout=30, maxread=65535)
+        ch.logfile = sys.stdout.buffer
+        ch.expect(['assword:', pexpect.EOF, pexpect.TIMEOUT])
+        send_and_expect(ch, password, prompt)
+        logger.info(f"Rebooting device")
+        send_and_expect(ch, f"sudo reboot", "admin: ")
+        send_and_expect(ch, password, prompt)        
+        return True
+    except:
+        return False
 
 def versa_failed_upgrade():
     #Had scenario's where it failed entering cli even with services running, and gave errors. Using Try to just repeat until it works. 
@@ -190,21 +206,6 @@ def versa_failed_upgrade():
         send_and_expect(ch, password, prompt)
         logger.info(f"Installation started, Will stop script for 10 minutes, then reboot device.")
         time.sleep(600)
-        send_and_expect(ch, f"sudo reboot", "admin: ")
-        send_and_expect(ch, password, prompt)        
-        return True
-    except:
-        return False
-
-def versa_reboot():
-    #Had scenario's where it failed entering cli even with services running, and gave errors. Using Try to just repeat until it works. 
-    #Would also break if unplugged during upgrade. 
-    try:
-        ch = pexpect.spawn(f'ssh {username}@{hostname}', timeout=30, maxread=65535)
-        ch.logfile = sys.stdout.buffer
-        ch.expect(['assword:', pexpect.EOF, pexpect.TIMEOUT])
-        send_and_expect(ch, password, prompt)
-        logger.info(f"Rebooting device")
         send_and_expect(ch, f"sudo reboot", "admin: ")
         send_and_expect(ch, password, prompt)        
         return True
@@ -250,16 +251,15 @@ def main():
     #Enable logging for the port number used. 
     logging_function(port_number)
 
-    
     try:
 
-        #Note INCLUDING ALOT OF TIME.SLEEP(X) as if it attempts to write the commands too fast, or one check fails it breaks.
-        #Tested with the time delay, the upgrade process is a few minutes slower but it's stable. 
-        #Alternative is to include alot more checks, but for now this will do. 
-        #A check that should be implemented is probably to check /var/log/versa/upgrade.log
-        #For image_filanem succeeded. 
-        #But i'm not comfortable enough with it working properly, so instead i used a 5 minute timer.
-        #Average wait upgrade time when image is uploaded seems to be 2-4 minutes, so i set a 5 minute timer. 
+    #Note INCLUDING ALOT OF TIME.SLEEP(X) as if it attempts to write the commands too fast, or one check fails it breaks.
+    #Tested with the time delay, the upgrade process is a few minutes slower but it's stable. 
+    #Alternative is to include alot more checks, but for now this will do. 
+    #A check that should be implemented is probably to check /var/log/versa/upgrade.log
+    #For image_filanem succeeded. 
+    #But i'm not comfortable enough with it working properly, so instead i used a 5 minute timer.
+    #Average wait upgrade time when image is uploaded seems to be 2-4 minutes, so i set a 5 minute timer. 
 
         while True:
             #Ping the device until it gives a reply, then proceed. 
@@ -275,119 +275,124 @@ def main():
                 else:
                     logger.info("Login: Successful")
                     try: 
-                        #Check if all services are running, then proceed. 
-                        for i in range(10):
-                            
-                            if "Stopped" in versa_status: #Loop here - 10 Attempts over 10 minutes
-                                logger.info(f"Some services have stopped, will try again in 1 minute, attempt number {i}.")
-                                if i == 5:
-                                    logger.info(f"Failed to check services {i} times.")
-                                    if not versa_reboot():
-                                        logger.info(f"Failed to restart device, waiting 1 minute.")
-                                        time.sleep(60)
-                                        break
-                                    else:
-                                        logger.info(f"Successfully restart device, waiting 1 minute.")
-                                        time.sleep(60)
-                                        break
-                                if not versa_update_clock():
-                                    logger.info(f"Failed to update clock.")
-                                    time.sleep(60)
-                                else:
-                                    logger.info(f"Successfully updated clock ")
-                                    time.sleep(60)
-                                
+                                #Check if all services are running, then proceed. 
+                        if "Stopped" in versa_status: #Loop here - 10 Attempts over 10 minutes
+                            global versa_needs_reboot
+                            logger.info(f"Some services have stopped, will try again in 1 minute, attempt {versa_needs_reboot}.")
 
-                            elif "Running" in versa_status:
-                                logger.info("All services are running")
-                                if versa_release in image_filename:
-                                    logger.info(f"SERIAL NUMBER: {versa_sn}")
-                                    logger.info(f"{versa_sn} has the right version: {versa_release}")
-                                    time.sleep(30)
-                                    #Checks if the interfaces have the correct name, if they dont it's either an issue or is not default config. 
-                                    for x in range(10):
-                                        if "WAN1-Transport-VR" in versa_interfaces:
-                                            logger.info(f"Device has WAN interface in correct VRF.")
-                                            logger.info(f"Will stop script for 1 minutes, then shutdown device.")
-                                            time.sleep(60)
-                                            #Shutdown the device when all checks are completed. 
-                                            #It saves a file with the serial number of the device to completed_devices/
-                                            #I want to seperate these in models, so 350, 730, 750, 770 folders. Can get from parse code.
-                                            #For now this will do.
-                                            #In the file it's stored:
-                                            # vsh details
-                                            # vsh status
-                                            # cli> show interfaces brief | tab | nomore 
-                                            #This will show most of what's necessary.
-                                            if not versa_shutdown():
-                                                logger.error(f"Unable to shutdown device, will wait 1 minutes.")
-                                                time.sleep(60)
-                                            else:
-                                                logger.info(f"COMPLETED {versa_sn} COMPLETED")
-                                                logger.info(f"Device is shutting down, will wait 2 minutes.")
-                                                #File creation with vsh details, vsh status and show interfaces under completed/devices. 
-                                                with open(f"/home/solar/versa_upgrade/completed_devices/{versa_sn}.log", "w") as f:
-                                                    f.write(f"Start of file\n {versa_sn} \n {versa_details} \n {versa_status} \n {versa_interfaces}\n end of file\n")
-                                                    logger.info(f"Created file: completed_devices/{versa_sn}.log")
-                                                time.sleep(120)
-                                            break
-                                        else:
-                                            #Mostly either delayed start or non-default configuration. Could be "resolved" doing the following:
-                                            # Check 2-3 more times, to verify it's not a slow start or read error.
-                                            # If process is repeated 3 times and gives same error:
-                                            # - Evaluate device model and run appropriate reset function.
-                                            # CSG7XX works with cli> request system reset
-                                            # CSG350 might require versa factory default script. 
-                                            logger.info(f"Device does not have WAN interface in correct VRF.")
-                                            logger.info(f"Current loop {i}, waiting 10 seconds and trying again")
-                                            time.sleep(10)
-                                            
-                                            if x == 9:
-                                                if not versa_reset():
-                                                    logger.info(f"Failed to Reset device to solve WAN interface.")
-                                                    time.sleep(10)
-                                                else:
-                                                    logger.info(f"Successfully Reset device to solve WAN interface, waiting 2 minutes.")
-                                                    time.sleep(120)
-                                                break
-                                
+                            versa_needs_reboot += 1
+                            if versa_needs_reboot == 5:
+                                if not versa_reboot():
+                                    logger.info(f"Failed to restart device, waiting 1 minute.")
+                                    time.sleep(60)
+                                    versa_needs_reboot == 0
                                 else:
-                                    #If it's the wrong version, and image is uploaded, start upgrade. 
-                                    logger.info(f"{versa_sn} has the wrong version: {versa_release}")
-
-                                    #If it's the wrong version, and image is not uploaded, upload then start upgrade. 
-                                    logger.info(f"starting upload of image")
-                                    if not versa_upload():
-                                        logger.info(f"{versa_sn} Failed to upload {image_filename} to /home/versa/packages")
-                                        time.sleep(30)
-                                    else:
-                                        logger.info(f"{versa_sn} Successfully uploaded {image_filename} to /home/versa/packages")
-                                        time.sleep(10)
-                                        if not versa_upgrade():
-                                            logger.info(f"{versa_sn} Failed to upgrade device with {image_filename}.")
-                                            time.sleep(10)
-                                        else:
-                                            logger.info(f"{versa_sn} Successfully started upgrade of device with {image_filename}.")
-                                            logger.info(f"{versa_sn} Waiting 5 minutes for the device to complete upgrade.")
-                                            time.sleep(300)
-                                        break
-                                break
+                                    logger.info(f"Successfully restart device, waiting 1 minute.")
+                                    time.sleep(60)
+                                    versa_needs_reboot == 0
+                            if not versa_update_clock():
+                                logger.info(f"Failed to update clock.")
+                                time.sleep(60)
                             else:
-                                #vsh not avaiable, usually from trying too fast after reboot / upgrade. Just try again.
-                                logger.info("Status is not stopped or running")  
-                                logger.info(f"Current loop {i}, waiting 10 seconds and trying again")
-                                time.sleep(10)
-                                if i == 9:
-                                    if not versa_failed_upgrade():
-                                        logger.info(f"Upgrade failed.")
+                                logger.info(f"Successfully updated clock ")
+                                time.sleep(60)
+                            
+
+                        elif "Running" in versa_status:
+                            logger.info("All services are running")
+                            global versa_failed_status
+                            versa_needs_reboot = 0
+                            versa_failed_status = 0
+                            if versa_release in image_filename:
+                                logger.info(f"SERIAL NUMBER: {versa_sn}")
+                                logger.info(f"{versa_sn} has the right version: {versa_release}")
+                                time.sleep(30)
+                                #Checks if the interfaces have the correct name, if they dont it's either an issue or is not default config. 
+                                for x in range(10):
+                                    if "WAN1-Transport-VR" in versa_interfaces:
+                                        logger.info(f"Device has WAN interface in correct VRF.")
+                                        logger.info(f"Will stop script for 1 minutes, then shutdown device.")
+                                        time.sleep(60)
+                                        #Shutdown the device when all checks are completed. 
+                                        #It saves a file with the serial number of the device to completed_devices/
+                                        #I want to seperate these in models, so 350, 730, 750, 770 folders. Can get from parse code.
+                                        #For now this will do.
+                                        #In the file it's stored:
+                                        # vsh details
+                                        # vsh status
+                                        # cli> show interfaces brief | tab | nomore 
+                                        #This will show most of what's necessary.
+                                        if not versa_shutdown():
+                                            logger.error(f"Unable to shutdown device, will wait 1 minutes.")
+                                            time.sleep(60)
+                                        else:
+                                            logger.info(f"COMPLETED {versa_sn} COMPLETED")
+                                            logger.info(f"Device is shutting down, will wait 2 minutes.")
+                                            #File creation with vsh details, vsh status and show interfaces under completed/devices. 
+                                            with open(f"/home/solar/versa_upgrade/completed_devices/{versa_sn}.log", "w") as f:
+                                                f.write(f"Start of file\n {versa_sn} \n {versa_details} \n {versa_status} \n {versa_interfaces}\n end of file\n")
+                                                logger.info(f"Created file: completed_devices/{versa_sn}.log")
+                                            time.sleep(120)
+                                        
+                                    else:
+                                        #Mostly either delayed start or non-default configuration. Could be "resolved" doing the following:
+                                        # Check 2-3 more times, to verify it's not a slow start or read error.
+                                        # If process is repeated 3 times and gives same error:
+                                        # - Evaluate device model and run appropriate reset function.
+                                        # CSG7XX works with cli> request system reset
+                                        # CSG350 might require versa factory default script. 
+                                        logger.info(f"Device does not have WAN interface in correct VRF.")
+                                        logger.info(f"Current loop {i}, waiting 10 seconds and trying again")
+                                        time.sleep(10)
+                                        
+                                        if x == 9:
+                                            if not versa_reset():
+                                                logger.info(f"Failed to Reset device to solve WAN interface.")
+                                                time.sleep(10)
+                                            else:
+                                                logger.info(f"Successfully Reset device to solve WAN interface, waiting 2 minutes.")
+                                                time.sleep(120)
+                                            
+                            
+                            else:
+                                #If it's the wrong version, and image is uploaded, start upgrade. 
+                                logger.info(f"{versa_sn} has the wrong version: {versa_release}")
+
+                                #If it's the wrong version, and image is not uploaded, upload then start upgrade. 
+                                logger.info(f"starting upload of image")
+                                if not versa_upload():
+                                    logger.info(f"{versa_sn} Failed to upload {image_filename} to /home/versa/packages")
+                                    time.sleep(30)
+                                else:
+                                    logger.info(f"{versa_sn} Successfully uploaded {image_filename} to /home/versa/packages")
+                                    time.sleep(10)
+                                    if not versa_upgrade():
+                                        logger.info(f"{versa_sn} Failed to upgrade device with {image_filename}.")
                                         time.sleep(10)
                                     else:
-                                        logger.info(f"Upgrade successful, rebooting device.")
-                                        time.sleep(10)
-                                    break
+                                        logger.info(f"{versa_sn} Successfully started upgrade of device with {image_filename}.")
+                                        logger.info(f"{versa_sn} Waiting 5 minutes for the device to complete upgrade.")
+                                        time.sleep(300)
+                                    
+                            
+                        else:
+                            #vsh not avaiable, usually from trying too fast after reboot / upgrade. Just try again.
+                            logger.info("Status is not stopped or running")  
+                            logger.info(f"Current loop {versa_failed_status}, waiting 10 seconds and trying again")
+                            versa_failed_status += 1 
+                            time.sleep(10)
+                            if versa_failed_status == 5:
+                                if not versa_failed_upgrade():
+                                    logger.info(f"Upgrade failed.")
+                                    time.sleep(10)
+                                    versa_failed_status == 0
+                                else:
+                                    logger.info(f"Upgrade successful, rebooting device.")
+                                    time.sleep(10)
+                                    versa_failed_status == 0
                                 
-                                
-
+                            
+                    
 
                     except: #Want this to loop 10 minutes - Then force manual upgrade of CPE 
                         #Mostly when trying too fast, when vsh is not avaiable. 
