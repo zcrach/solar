@@ -3,17 +3,18 @@ from datetime import date
 from versa_variables import *
 #File used to hold hosts file and image file variable. Same directory, named versa_variables.py
 
-global versa_failed_status, versa_needs_reboot
+global versa_failed_status, versa_needs_reboot, versa_interface_status
 
 #Variable to change ports.1
 #If going above port 9, modify hostname. 
-port_number = 2
+port_number = 1
 hostname = f"172.16.10{port_number}.1"
 username = "admin"
 password = "versa123"
 prompt = "\$"
 versa_failed_status = 0
 versa_needs_reboot = 0
+versa_interface_status = 0
 
 def versa_login():
     #Creates the initial SSH session used to gather variables. 
@@ -112,6 +113,7 @@ def send_and_expect(ch, send, expect):
 
 def versa_ping(response=None):
     #Function to ping the IP address for the port, and return True when reply is received. 
+
     while response != 0:
         response = os.system("ping -c 1 " + hostname)
     else:
@@ -285,11 +287,11 @@ def main():
                                 if not versa_reboot():
                                     logger.info(f"Failed to restart device, waiting 1 minute.")
                                     time.sleep(60)
-                                    versa_needs_reboot == 0
+                                    versa_needs_reboot = 0
                                 else:
                                     logger.info(f"Successfully restart device, waiting 1 minute.")
                                     time.sleep(60)
-                                    versa_needs_reboot == 0
+                                    versa_needs_reboot = 0
                             if not versa_update_clock():
                                 logger.info(f"Failed to update clock.")
                                 time.sleep(60)
@@ -308,50 +310,56 @@ def main():
                                 logger.info(f"{versa_sn} has the right version: {versa_release}")
                                 time.sleep(30)
                                 #Checks if the interfaces have the correct name, if they dont it's either an issue or is not default config. 
-                                for x in range(10):
-                                    if "WAN1-Transport-VR" in versa_interfaces:
-                                        logger.info(f"Device has WAN interface in correct VRF.")
-                                        logger.info(f"Will stop script for 1 minutes, then shutdown device.")
+                                                                                                   
+                                if "WAN1-Transport-VR" in versa_interfaces:
+                                    logger.info(f"Device has WAN interface in correct VRF.")
+                                    logger.info(f"Will stop script for 1 minutes, then shutdown device.")
+
+                                    time.sleep(60)
+                                    #Shutdown the device when all checks are completed. 
+                                    #It saves a file with the serial number of the device to completed_devices/
+                                    #I want to seperate these in models, so 350, 730, 750, 770 folders. Can get from parse code.
+                                    #For now this will do.
+                                    #In the file it's stored:
+                                    # vsh details
+                                    # vsh status
+                                    # cli> show interfaces brief | tab | nomore 
+                                    #This will show most of what's necessary.
+                                    if not versa_shutdown():
+                                        logger.error(f"Unable to shutdown device, will wait 1 minutes.")
                                         time.sleep(60)
-                                        #Shutdown the device when all checks are completed. 
-                                        #It saves a file with the serial number of the device to completed_devices/
-                                        #I want to seperate these in models, so 350, 730, 750, 770 folders. Can get from parse code.
-                                        #For now this will do.
-                                        #In the file it's stored:
-                                        # vsh details
-                                        # vsh status
-                                        # cli> show interfaces brief | tab | nomore 
-                                        #This will show most of what's necessary.
-                                        if not versa_shutdown():
-                                            logger.error(f"Unable to shutdown device, will wait 1 minutes.")
-                                            time.sleep(60)
-                                        else:
-                                            logger.info(f"COMPLETED {versa_sn} COMPLETED")
-                                            logger.info(f"Device is shutting down, will wait 2 minutes.")
-                                            #File creation with vsh details, vsh status and show interfaces under completed/devices. 
-                                            with open(f"/home/solar/versa_upgrade/completed_devices/{versa_sn}.log", "w") as f:
-                                                f.write(f"Start of file\n {versa_sn} \n {versa_details} \n {versa_status} \n {versa_interfaces}\n end of file\n")
-                                                logger.info(f"Created file: completed_devices/{versa_sn}.log")
-                                            time.sleep(120)
-                                        
                                     else:
-                                        #Mostly either delayed start or non-default configuration. Could be "resolved" doing the following:
-                                        # Check 2-3 more times, to verify it's not a slow start or read error.
-                                        # If process is repeated 3 times and gives same error:
-                                        # - Evaluate device model and run appropriate reset function.
-                                        # CSG7XX works with cli> request system reset
-                                        # CSG350 might require versa factory default script. 
-                                        logger.info(f"Device does not have WAN interface in correct VRF.")
-                                        logger.info(f"Current loop {i}, waiting 10 seconds and trying again")
-                                        time.sleep(10)
+                                        logger.info(f"COMPLETED {versa_sn} COMPLETED")
+                                        logger.info(f"Device is shutting down, will wait 2 minutes.")
+                                        #File creation with vsh details, vsh status and show interfaces under completed/devices. 
+                                        with open(f"/home/solar/versa_upgrade/completed_devices/{versa_sn}.log", "w") as f:
+                                            f.write(f"Start of file\n {versa_sn} \n {versa_details} \n {versa_status} \n {versa_interfaces}\n end of file\n")
+                                            logger.info(f"Created file: completed_devices/{versa_sn}.log")
+                                        time.sleep(120)
                                         
-                                        if x == 9:
-                                            if not versa_reset():
-                                                logger.info(f"Failed to Reset device to solve WAN interface.")
-                                                time.sleep(10)
-                                            else:
-                                                logger.info(f"Successfully Reset device to solve WAN interface, waiting 2 minutes.")
-                                                time.sleep(120)
+                                    
+                                else:
+                                    #Mostly either delayed start or non-default configuration. Could be "resolved" doing the following:
+                                    # Check 2-3 more times, to verify it's not a slow start or read error.
+                                    # If process is repeated 3 times and gives same error:
+                                    # - Evaluate device model and run appropriate reset function.
+                                    # CSG7XX works with cli> request system reset
+                                    # CSG350 might require versa factory default script. 
+                                    logger.info(f"Device does not have WAN interface in correct VRF.")
+                                    global versa_interface_status
+                                    logger.info(f"Current attempt {versa_interface_status}, waiting 10 seconds and trying again")
+                                    versa_interface_status += 1 
+                                    time.sleep(10)
+                                    
+                                    if versa_interface_status == 5:
+                                        if not versa_reset():
+                                            logger.info(f"Failed to Reset device to solve WAN interface.")
+                                            time.sleep(10)
+                                            versa_interface_status = 0
+                                        else:
+                                            logger.info(f"Successfully Reset device to solve WAN interface, waiting 2 minutes.")
+                                            time.sleep(120)
+                                            versa_interface_status = 0
                                             
                             
                             else:
@@ -385,11 +393,11 @@ def main():
                                 if not versa_failed_upgrade():
                                     logger.info(f"Upgrade failed.")
                                     time.sleep(10)
-                                    versa_failed_status == 0
+                                    versa_failed_status = 0
                                 else:
                                     logger.info(f"Upgrade successful, rebooting device.")
                                     time.sleep(10)
-                                    versa_failed_status == 0
+                                    versa_failed_status = 0
                                 
                             
                     
