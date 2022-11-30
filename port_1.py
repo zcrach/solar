@@ -345,12 +345,12 @@ def main():
                                         time.sleep(60)
                                     else:
                                         logger.info(f"COMPLETED {versa_sn} COMPLETED")
-                                        logger.info(f"Device is shutting down, will wait 1 minute.")
+                                        logger.info(f"Device is shutting down, will wait 3 minutes.")
                                         #File creation with vsh details, vsh status and show interfaces under completed/devices. 
                                         with open(f"/home/solar/versa_upgrade/completed_devices/{versa_sn}.log", "w") as f:
                                             f.write(f"Start of file\n {versa_sn} \n {versa_details} \n {versa_status} \n {versa_interfaces}\n end of file\n")
                                             logger.info(f"Created file: completed_devices/{versa_sn}.log")
-                                        time.sleep(60)
+                                        time.sleep(180)
                                         if not versa_shut_interface():
                                             logger.error(f"Unable to shutdown interface, will wait 1 minutes.")
                                             time.sleep(60)
