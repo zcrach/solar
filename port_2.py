@@ -194,6 +194,21 @@ def versa_reboot():
         return True
     except:
         return False
+    
+def versa_shut_interface():
+    #Had scenario's where it failed entering cli even with services running, and gave errors. Using Try to just repeat until it works. 
+    #Would also break if unplugged during upgrade. 
+    try:
+        ch = pexpect.spawn(f'ssh {username}@{hostname}', timeout=30, maxread=65535)
+        ch.logfile = sys.stdout.buffer
+        ch.expect(['assword:', pexpect.EOF, pexpect.TIMEOUT])
+        send_and_expect(ch, password, prompt)
+        logger.info(f"Shutting down eth0")
+        send_and_expect(ch, f"sudo ifdown eth0", "admin: ")
+        send_and_expect(ch, password, prompt)        
+        return True
+    except:
+        return False
 
 def versa_failed_upgrade():
     #Had scenario's where it failed entering cli even with services running, and gave errors. Using Try to just repeat until it works. 
@@ -234,7 +249,7 @@ def versa_hosts_file():
         logging.info(f"No file in {hosts_path} to remove")
 
 def versa_shutdown():
-    #Engineering DK wanted the function to shutdown the device when it's completed.
+    #Engineering DK wanted the function to shutdown the device when it's .
     #Had issues here where even if i checked that all services are running, cli would sometimes fail.
     #Just did Try/Expect again to repeat until it works. 
     try:
@@ -330,12 +345,20 @@ def main():
                                         time.sleep(60)
                                     else:
                                         logger.info(f"COMPLETED {versa_sn} COMPLETED")
-                                        logger.info(f"Device is shutting down, will wait 2 minutes.")
+                                        logger.info(f"Device is shutting down, will wait 3 minutes.")
                                         #File creation with vsh details, vsh status and show interfaces under completed/devices. 
                                         with open(f"/home/solar/versa_upgrade/completed_devices/{versa_sn}.log", "w") as f:
                                             f.write(f"Start of file\n {versa_sn} \n {versa_details} \n {versa_status} \n {versa_interfaces}\n end of file\n")
                                             logger.info(f"Created file: completed_devices/{versa_sn}.log")
-                                        time.sleep(120)
+                                        time.sleep(180)
+                                        if not versa_shut_interface():
+                                            logger.error(f"Unable to shutdown interface, will wait 1 minutes.")
+                                            time.sleep(60)
+                                        else:
+                                            logger.error(f"Successfully shutdown interface, will wait 1 minutes.")
+                                            time.sleep(60)
+                                            
+
                                         
                                     
                                 else:
