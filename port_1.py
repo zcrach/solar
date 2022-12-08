@@ -299,13 +299,15 @@ def main():
 
                             versa_needs_reboot += 1
                             if versa_needs_reboot == 5:
-                                if not versa_reboot():
+                                if not versa_failed_upgrade():
                                     logger.info(f"Failed to restart device, waiting 1 minute.")
-                                    time.sleep(60)
+                                    logger.info(f"{versa_sn} Failed to upgrade device with {image_filename}.")
+                                    time.sleep(10)
                                     versa_needs_reboot = 0
                                 else:
-                                    logger.info(f"Successfully restart device, waiting 1 minute.")
-                                    time.sleep(60)
+                                    logger.info(f"{versa_sn} Successfully completed upgrade of device with {image_filename}.")
+                                    logger.info(f"{versa_sn} Waiting 5 minutes for the device to complete upgrade.")
+                                    time.sleep(300)
                                     versa_needs_reboot = 0
                             if not versa_update_clock():
                                 logger.info(f"Failed to update clock.")
