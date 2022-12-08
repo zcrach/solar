@@ -397,11 +397,11 @@ def main():
                                 else:
                                     logger.info(f"{versa_sn} Successfully uploaded {image_filename} to /home/versa/packages")
                                     time.sleep(10)
-                                    if not versa_upgrade():
+                                    if not versa_failed_upgrade():
                                         logger.info(f"{versa_sn} Failed to upgrade device with {image_filename}.")
                                         time.sleep(10)
                                     else:
-                                        logger.info(f"{versa_sn} Successfully started upgrade of device with {image_filename}.")
+                                        logger.info(f"{versa_sn} Successfully completed upgrade of device with {image_filename}.")
                                         logger.info(f"{versa_sn} Waiting 5 minutes for the device to complete upgrade.")
                                         time.sleep(300)
                                     
