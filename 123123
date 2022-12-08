@@ -1,0 +1,80 @@
+
+<img src="gc_logo.png" width="300px" height="70px"/>
+<head>
+   <link rel="stylesheet" href="style.css" media="screen">
+
+   <br>
+   <br>
+<center>
+    <br>
+   <div class="box"><a>Versa Upgrade</a></div>
+</center>
+
+<br>
+</div>
+<head>
+
+<?php
+function pingAddress($VersaIP) {
+
+    $pingresult = exec("ping -n 1 $VersaIP -w 1   && exit", $output, $result);
+    //echo $result. "<br/>";
+    $port_first = str_replace("172.16.1", "", $VersaIP);
+    $port = str_replace(".1", "", $port_first);
+    echo "<div class='box $VersaIP' style=background-color:";
+    if (($result == 0))
+        {
+        if(count(preg_grep('/Destination/i', $output)) == 0)
+            {
+                echo "red >";
+                echo "<table border=1 class='center'>
+                <font face=Courier New>
+                <th colspan=4> ";
+                echo " Port $port ";
+            }
+            else {
+                echo "red >";
+                echo "<table border=1 class='center'>
+                <font face=Courier New>
+                <th colspan=4> ";
+                echo " Port $port ";
+            }
+        }
+    elseif ($result == 1)
+    {
+        echo "green >";
+        echo "<table border=1 class='center'>
+        <font face=Courier New>
+        <th colspan=4> ";
+        echo " Port $port ";
+    }   
+    echo '</tr>';
+
+    echo "</table>";
+    echo "</font>";
+    echo "</div>";
+
+
+}
+echo header("refresh: 5");
+echo "<div class='wrapper'>";
+
+
+
+pingAddress("172.16.101.1");
+pingAddress("172.16.102.1");
+pingAddress("172.16.103.1");
+pingAddress("172.16.104.1");
+pingAddress("172.16.105.1");
+pingAddress("172.16.106.1");
+pingAddress("172.16.107.1");
+pingAddress("172.16.108.1");
+pingAddress("172.16.109.1");
+pingAddress("172.16.110.1");
+#pingAddress("172.16.108.1");
+#pingAddress("172.16.109.1");
+#pingAddress("172.16.110.1");
+
+echo "</div>";
+
+?>
