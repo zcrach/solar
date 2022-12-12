@@ -25,7 +25,6 @@ def versa_login():
         send_and_expect(ch, 'yes', 'assword:')
         send_and_expect(ch, password, prompt)
         return True
-
     elif session_callback == 3:
         send_and_expect(ch, password, prompt)
         try:
